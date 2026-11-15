@@ -130,6 +130,7 @@ h1{font-size:28px;font-weight:700;letter-spacing:-.02em;margin:18px 0 12px}
 <script src="library.js"></script>
 <script src="program.js"></script>
 <script src="timer.js"></script>
+<script src="sync.js"></script>
 <script>
 // ================= SETUP =================
 const D=(a)=>new Date(a[0],a[1]-1,a[2]);
@@ -311,8 +312,16 @@ function renderPickerList(){
 }
 
 // ================= HISTORY =================
+function syncBadge(){
+  if(!Sync.hasToken()) return `<small class="lnk" data-act="syncsetup" style="color:var(--acc)">Connect Obsidian sync</small>`;
+  const n=Sync.pendingCount(),s=Sync.status();
+  if(n>0) return `<small class="lnk" data-act="syncnow" style="color:var(--mute)">⟳ ${n} syncing to Obsidian…</small>`;
+  if(s.lastErr) return `<small class="lnk" data-act="syncnow" style="color:#e08a3c">⚠ sync stalled — tap to retry</small> <small class="lnk" data-act="syncsetup" style="color:var(--mute)">· reset token</small>`;
+  if(s.lastOk) return `<small style="color:var(--mute)">✓ synced to Obsidian</small> <small class="lnk" data-act="syncsetup" style="color:var(--mute)">· reset token</small>`;
+  return "";
+}
 function rHistory(){
-  let h=`<h1>History</h1>`;if(!hist.length)h+=`<div class="empty">No sessions yet.<br>Finish one on the Today tab.</div>`;
+  let h=`<h1>History</h1><div style="margin:-8px 0 14px">${syncBadge()}</div>`;if(!hist.length)h+=`<div class="empty">No sessions yet.<br>Finish one on the Today tab.</div>`;
   hist.slice().reverse().forEach(s=>{const d=new Date(s.date+"T12:00:00");const ds=isNaN(d)?s.date:d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
     h+=`<div class="sess"><div class="hd"><b>${esc(s.workout)}${s.trial?' <span class="chip trial" style="font-size:10px;padding:2px 7px">TRIAL</span>':""}</b><span>${esc(ds)}</span></div>
      <div class="barlbl" style="margin-top:4px"><span>Week ${s.week} · ${s.done}/${s.total} complete${s.swaps?` · ${s.swaps} swapped`:""}</span></div>
@@ -380,6 +389,8 @@ document.addEventListener("click",ev=>{
     case"ctype":st.cls.type=v;saveDraft();render();break;
     case"ceff":st.cls.effort=v;saveDraft();render();break;
     case"ttest":Timer.test();break;
+    case"syncnow":Sync.flush().then(render);break;
+    case"syncsetup":{const t=prompt("Paste your GitHub token for Obsidian sync (from github.com/settings/personal-access-tokens, scoped only to the workout-data repo):",Sync.hasToken()?"":"");if(t!==null){Sync.setToken(t);toast(t.trim()?"Sync connected":"Sync token cleared");Sync.flush().then(render);}break;}
     case"tvoice":{Timer.setVoiceOn(!Timer.voiceOn);const el=document.getElementById("tov");if(el)el._key="";render();if(el&&el.style.display==="flex")rTimer(Timer.state());break;}
     case"tstart":{const b=curDay().blocks[bi],tc=tcfg(b);const stations=b.items.map((it,j)=>st.swap[`${bi}-${j}`]||it.id);
       ui.tbi=bi;showTimer();Timer.start(stations,tc,rTimer,()=>{b.items.forEach((_,j)=>S(`${bi}-${j}`).done=true);saveDraft();});break;}
@@ -393,7 +404,7 @@ document.addEventListener("click",ev=>{
       curDay().blocks.forEach((b,bi2)=>b.items.forEach((it,i2)=>{const kk=`${bi2}-${i2}`,s=st.s[kk]||{},id=st.swap[kk]||it.id;total++;if(s.done)done++;if(st.swap[kk])swaps++;if(it.log)lifts.push({n:id,wt:s.wt,reps:s.reps,feel:s.feel})}));
       const rec={date:TODAY,workout:curDay().title,week:st.week,trial:TRIAL,lifts,done,total,swaps};
       if(st.w==="CLASS")rec.cls=Object.assign({replaced:prog[AUTO].title},st.cls);
-      hist.push(rec);store.set("wk_hist",hist);Timer.reset();closeTimer();
+      hist.push(rec);store.set("wk_hist",hist);Timer.reset();closeTimer();Sync.queue(rec);
       st.s={};st.swap={};st.cls={};ui.open={};saveDraft();render();scrollTo(0,0);toast("Session saved");break;}
   }
 });
@@ -408,4 +419,3 @@ render();
 </script>
 </body>
 </html>
-<!-- build trigger: 2026-11-15T20:22:11Z -->
