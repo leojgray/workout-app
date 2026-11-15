@@ -228,7 +228,7 @@ function rToday(){
     const bd=b.items.filter((_,i)=>st.s[`${bi}-${i}`]?.done).length;
     h+=`<div class="h2"><b>${esc(b.title)}</b><span>${bd}/${b.items.length}</span></div>${b.note?`<div class="blocknote">${esc(b.note)}</div>`:""}`;
     if(b.timer||b.cat==="Conditioning"){const tc=tcfg(b);
-      h+=`<div class="tcard"><div class="tt"><b>Circuit Timer</b><small id="tmini">${Timer.active?"Running — tap to open":`${tc.rounds} rounds · ${tc.work}s on / ${tc.rest}s off · ${tc.roundRest}s round rest`}</small><br><button class="lnk" data-act="ttest">Test sound</button> · <button class="lnk" data-act="tvoice">Voice ${Timer.voiceOn?"on":"off"}</button></div>
+      h+=`<div class="tcard"><div class="tt"><b>Circuit Timer</b><small id="tmini">${Timer.active?"Running — tap to open":`${tc.rounds} rounds · ${tc.work}s on / ${tc.rest}s off · ${tc.roundRest}s round rest`}</small><br><button class="lnk" data-act="ttest">Test sound</button> · <button class="lnk" data-act="tvoice">Voice ${Timer.voiceOn?"on":"off"}</button> · <button class="lnk" data-act="taudiomode">${Timer.audioMode==="playback"?"Always audible":"Won't pause music"}</button></div>
         <button class="go" data-act="${Timer.active?"topen":"tstart"}" data-bi="${bi}">${Timer.active?"Open":"Start"}</button></div>`;}
     h+=`<div class="list">`;
     b.items.forEach((it,i)=>{
@@ -356,7 +356,8 @@ function rTimer(s){
     <div class="dots">${Array.from({length:s.rounds},(_,r)=>`<i class="${r+1<g.round?"on":r+1===g.round?"cur":""}"></i>`).join("")}</div></div>
    <div class="tbar"><i style="width:${Math.min(100,s.frac*100)}%"></i></div>
    <div class="tctl"><button data-act="treset">Reset</button><button class="pri" data-act="tpause">${s.running?"Pause":"Resume"}</button></div>
-   <button class="lnk" style="text-align:center;margin-top:10px" data-act="tvoice">Voice cues: ${Timer.voiceOn?"On":"Off"}</button>`;
+   <button class="lnk" style="text-align:center;margin-top:10px" data-act="tvoice">Voice cues: ${Timer.voiceOn?"On":"Off"}</button>
+   <button class="lnk" style="text-align:center;margin-top:4px" data-act="taudiomode">${Timer.audioMode==="playback"?"Always audible (may pause music)":"Won't pause music (silenced if muted)"}</button>`;
 }
 
 // ================= EVENTS =================
@@ -392,6 +393,7 @@ document.addEventListener("click",ev=>{
     case"syncnow":Sync.flush().then(render);break;
     case"syncsetup":{const t=prompt("Paste your GitHub token for Obsidian sync (from github.com/settings/personal-access-tokens, scoped only to the workout-data repo):",Sync.hasToken()?"":"");if(t!==null){Sync.setToken(t);toast(t.trim()?"Sync connected":"Sync token cleared");Sync.flush().then(render);}break;}
     case"tvoice":{Timer.setVoiceOn(!Timer.voiceOn);const el=document.getElementById("tov");if(el)el._key="";render();if(el&&el.style.display==="flex")rTimer(Timer.state());break;}
+    case"taudiomode":{Timer.setAudioMode(Timer.audioMode==="playback"?"ambient":"playback");toast(Timer.audioMode==="playback"?"Always audible — test if it pauses your music":"Won't pause music — silenced if your phone is on silent");const el=document.getElementById("tov");if(el)el._key="";render();if(el&&el.style.display==="flex")rTimer(Timer.state());break;}
     case"tstart":{const b=curDay().blocks[bi],tc=tcfg(b);const stations=b.items.map((it,j)=>st.swap[`${bi}-${j}`]||it.id);
       ui.tbi=bi;showTimer();Timer.start(stations,tc,rTimer,()=>{b.items.forEach((_,j)=>S(`${bi}-${j}`).done=true);saveDraft();});break;}
     case"topen":showTimer();rTimer(Timer.state());break;
