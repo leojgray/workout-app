@@ -40,6 +40,7 @@ h1{font-family:var(--f-display);font-size:28px;font-weight:700;letter-spacing:-.
 .bar{height:6px;background:var(--surface-2);border-radius:var(--radius-sm);margin-top:var(--space-4);overflow:hidden}.bar i{display:block;height:100%;background:var(--accent);border-radius:var(--radius-sm);transition:width .3s}
 .barlbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:7px}
 .scroller{display:flex;gap:var(--space-2);overflow-x:auto;margin:var(--space-4) calc(var(--space-4)*-1) 0;padding:0 var(--space-4) 2px;scrollbar-width:none}.scroller::-webkit-scrollbar{display:none}
+.dayrow{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-top:var(--space-4)}
 .pill{flex:none;font-size:14px;font-weight:500;color:var(--text);background:var(--surface);border:1px solid var(--border);padding:9px var(--space-4);border-radius:var(--radius-pill);transition:background-color var(--ql-dur) var(--ql-ease),border-color var(--ql-dur) var(--ql-ease),color var(--ql-dur) var(--ql-ease)}
 .pill.on{background:var(--highlight);color:var(--accent);border-color:transparent}.pill.auto:not(.on){border-color:var(--accent)}
 @media (hover:hover){.pill:not(.on):hover{background-color:color-mix(in srgb,var(--highlight) 55%,transparent)}}
@@ -236,7 +237,7 @@ function rToday(){
   let h=`<h1>Today's Activity</h1><div class="hero"><span class="tag">${st.w===AUTO?"TODAY'S WORKOUT":"WORKOUT"}</span>
    <div class="herorow"><div class="ico">${IC[w.icon]||IC.lift}</div><div><h3>${esc(w.title)}</h3><p>Est. ${esc(w.est)} · ${TRIAL?"Trial run":PROGRAM.name+" · Week "+st.week}</p></div></div>
    <p class="about">${esc(w.about)}</p>${st.w!=="CLASS"?`<button class="classbtn" data-act="w" data-v="CLASS">${IC.cls.replace(/30/g,"18")} Took an O-Athletic class instead</button>`:""}<div class="bar"><i style="width:${pct}%"></i></div><div class="barlbl"><span>${done} of ${total} complete</span><span>${pct}%</span></div></div>
-   <div class="scroller">${Object.entries(prog).map(([k,v])=>`<button class="pill ${k===st.w?"on":""} ${k===AUTO?"auto":""}" data-act="w" data-v="${k}">${esc(v.label)}</button>`).join("")}<button class="pill ${st.w==="CLASS"?"on":""}" data-act="w" data-v="CLASS">O-Athletic Class</button></div>
+   <div class="dayrow">${Object.entries(prog).map(([k,v])=>`<button class="pill ${k===st.w?"on":""} ${k===AUTO?"auto":""}" data-act="w" data-v="${k}">${esc(v.label)}</button>`).join("")}<button class="pill ${st.w==="CLASS"?"on":""}" data-act="w" data-v="CLASS">O-Athletic Class</button></div>
    <div class="seg">${[1,2,3,4].map(n=>`<button class="${n===st.week?"on":""}" data-act="wk" data-v="${n}">Week ${n}</button>`).join("")}</div>`;
   if(st.w==="CLASS"){const c=st.cls;
     h+=`<div class="h2"><b>Class Log</b><span>${c.type?"✓":""}</span></div><div class="form">
@@ -274,7 +275,7 @@ function rToday(){
 function rProgram(){
   const d=prog[ui.pday];
   let h=`<h1>Program</h1><div class="blocknote" style="margin:0 2px">${esc(PROGRAM.name)} · edits apply to every future session of this day.</div>
-   <div class="scroller">${Object.entries(prog).map(([k,v])=>`<button class="pill ${k===ui.pday?"on":""}" data-act="pday" data-v="${k}">${esc(v.label)}</button>`).join("")}</div>`;
+   <div class="dayrow">${Object.entries(prog).map(([k,v])=>`<button class="pill ${k===ui.pday?"on":""}" data-act="pday" data-v="${k}">${esc(v.label)}</button>`).join("")}</div>`;
   d.blocks.forEach((b,bi)=>{
     h+=`<div class="h2"><b>${esc(b.title)}</b><button class="addbtn" data-act="addopen" data-bi="${bi}">+ Add</button></div><div class="list">`;
     if(!b.items.length)h+=`<div class="erow muted" style="color:var(--muted)">Empty — tap + Add</div>`;
