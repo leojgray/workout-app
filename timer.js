@@ -17,16 +17,14 @@ const Timer = (() => {
     return s;
   }
   // ---- audio ----
-  function getAudioMode(){ try{ const v=localStorage.getItem("wk_audio_mode"); return v==="playback"?"playback":"ambient"; }catch(e){ return "ambient"; } }
-  function setAudioMode(m){ try{ localStorage.setItem("wk_audio_mode",m==="playback"?"playback":"ambient"); }catch(e){} }
-  let sessionSetFor=null;
+  let sessionSet=false;
   function setAmbientSession(){
-    // "ambient" mixes with other apps' audio but is silenced by the ringer switch.
-    // "playback" is always audible (ignores the switch) but may pause other audio.
-    // iOS doesn't offer both at once through this API, so it's a user choice.
-    const mode=getAudioMode();
-    if(sessionSetFor===mode) return; sessionSetFor=mode;
-    try{ if("audioSession" in navigator) navigator.audioSession.type=mode; }catch(e){}
+    // "ambient" mixes with other apps' audio (never pauses Spotify/Music) but is
+    // silenced when the phone's ringer switch is set to silent. Leo keeps his on
+    // silent and confirmed "playback" (always audible) pauses his music instead,
+    // so this is the settled tradeoff: silent cues when muted, music never interrupted.
+    if(sessionSet) return; sessionSet=true;
+    try{ if("audioSession" in navigator) navigator.audioSession.type="ambient"; }catch(e){}
   }
   function audio(){ setAmbientSession(); if(!ctx){ try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } if(ctx&&ctx.state==="suspended") ctx.resume(); return ctx; }
   function tone(freq,dur,type,vol,when){ const a=audio(); if(!a) return; const o=a.createOscillator(), g=a.createGain(); o.type=type||"sine"; o.frequency.value=freq;
@@ -104,8 +102,6 @@ const Timer = (() => {
     test(){ audio(); say("3, 2, 1, Go",true,()=>{tone(600,0.1,"sine",0.4);tone(600,0.1,"sine",0.4,0.3);tone(600,0.1,"sine",0.4,0.6);tone(1046,0.18,"sine",0.5,0.9);}); setTimeout(buzzer,1600); },
     get voiceOn(){ return getVoiceOn(); },
     setVoiceOn(on){ setVoiceOn(on); },
-    get audioMode(){ return getAudioMode(); },
-    setAudioMode(m){ setAudioMode(m); sessionSetFor=null; setAmbientSession(); },
     get active(){ return segs.length>0; }, get running(){ return running; }, state
   };
 })();
