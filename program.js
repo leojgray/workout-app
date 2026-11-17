@@ -16,7 +16,7 @@ const CORE_NOTE = "One circuit in one spot · 2 rounds · minimal rest";
 const LIFT_NOTE = "Rest 2–3 min on LOG lifts · 60–90 s otherwise";
 
 const PROGRAM = {
-  version: 1,
+  version: 2,
   name: "Cycle 1",
   start: [2026, 11, 15],        // Sun Nov 15, 2026 — out of trial
   offFriday: [2026, 11, 13],    // off every other Friday from Nov 13 (9/80)
