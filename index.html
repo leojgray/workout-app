@@ -97,6 +97,9 @@ h1{font-family:var(--f-display);font-size:28px;font-weight:700;letter-spacing:-.
 .sess .hd{display:flex;justify-content:space-between;align-items:baseline}.sess .hd b{font-size:16px}.sess .hd span{font-size:13px;color:var(--muted)}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--space-3);margin-top:var(--space-4)}
 .stat{background:var(--surface-2);border-radius:var(--radius-sm);padding:10px var(--space-3)}.stat small{display:block;font-size:12px;color:var(--muted)}.stat b{font-size:18px;font-variant-numeric:tabular-nums}.stat i{font-style:normal;font-size:12px;color:var(--accent);margin-left:4px}
+.blkstats{display:flex;flex-wrap:wrap;gap:6px;margin-top:var(--space-3)}
+.blkstat{font-size:11px;font-weight:600;padding:3px 8px;border-radius:var(--radius-sm);background:var(--surface-2);color:var(--muted)}
+.blkstat.on{background:color-mix(in srgb,var(--positive) 16%,var(--surface-2));color:var(--positive)}
 .empty{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-card);padding:30px var(--space-4);text-align:center;color:var(--muted)}
 .tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);display:flex;justify-content:center;gap:6px;padding:var(--space-2) var(--space-2) calc(var(--space-2) + env(safe-area-inset-bottom));z-index:6}
 .tabs button{flex:1;max-width:150px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;border-radius:var(--radius-md);color:var(--muted);font-size:11px;font-weight:500;position:relative;transition:color var(--ql-dur) var(--ql-ease)}
@@ -204,8 +207,9 @@ const CLASS_TYPES=["Cardio","HIIT","Strength","Mixed"];
 let hist=store.get("wk_hist",[]);
 // In-progress session survives a page reload during the same day
 const draft=store.get("wk_draft",null);
-let st=(draft&&draft.date===TODAY)?draft:{date:TODAY,w:AUTO,week:autoWeek(now),s:{},swap:{},cls:{}};
+let st=(draft&&draft.date===TODAY)?draft:{date:TODAY,w:AUTO,week:autoWeek(now),s:{},swap:{},cls:{},notes:""};
 st.cls=st.cls||{};
+st.notes=st.notes||"";
 const saveDraft=()=>store.set("wk_draft",st);
 let ui={tab:"today",open:{},iopen:{},q:"",filt:"Lifts",pday:AUTO,picker:null};
 
@@ -214,6 +218,26 @@ const LOWER=["Back Squat","Deadlift","Trap Bar Deadlift","Front Squat","Romanian
 function suggest(n){for(let i=hist.length-1;i>=0;i--){const l=(hist[i].lifts||[]).find(x=>x.n===n&&x.wt);
   if(l){const w=parseFloat(l.wt);if(isNaN(w))return null;const inc=l.feel==="hard"?0:(l.feel==="easy"&&LOWER.includes(n)?10:5);
     return{last:`${l.wt} × ${l.reps||"?"}${l.feel?" · "+l.feel:""}`,next:w+inc};}}return null;}
+
+// Per-block yes/no completion tracker. Only these groups are tracked — ad hoc
+// single-item blocks (Today, Ride, Intervals, Yoga) are left out on purpose.
+// An item counts toward its block's title unless it carries a trackAs override
+// (used to split Foot out from a merged "Cool-down & Foot" / "Yoga & Foot" block
+// without changing what's shown on screen). "Done" = majority of items checked.
+const TRACKED_GROUPS=["Warm-up","Lifts","Circuit","Core Circuit","Cool-down","Foot"];
+function blockStatus(day){
+  const g={};
+  day.blocks.forEach((b,bi)=>b.items.forEach((it,i)=>{
+    const name=it.trackAs||b.title;
+    if(!TRACKED_GROUPS.includes(name))return;
+    const s=st.s[`${bi}-${i}`]||{};
+    (g[name]=g[name]||{done:0,total:0}).total++;
+    if(s.done)g[name].done++;
+  }));
+  const out={};
+  for(const n in g)out[n]=g[n].total>0&&g[n].done>=Math.ceil(g[n].total/2);
+  return out;
+}
 
 // ================= SHARED PIECES =================
 function detailHTML(id,extra){const e=LIB[id];if(!e)return`<div class="detail">Not in index.</div>`;
@@ -268,7 +292,8 @@ function rToday(){
     });
     h+=`</div>`;
   });
-  h+=`<button class="btn" data-act="save">Finish & Save Session</button><div class="mock">Mock-up · sessions save on this device only for now</div>`;
+  h+=`<div class="h2"><b>Notes</b></div><div class="form"><label class="l">Optional</label><textarea placeholder="Anything worth remembering about today?" data-in="notes">${esc(st.notes)}</textarea></div>
+   <button class="btn" data-act="save">Finish & Save Session</button><div class="mock">Mock-up · sessions save on this device only for now</div>`;
   document.getElementById("view").innerHTML=h;
 }
 
@@ -348,8 +373,11 @@ function rHistory(){
   hist.slice().reverse().forEach(s=>{const d=new Date(s.date+"T12:00:00");const ds=isNaN(d)?s.date:d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
     h+=`<div class="sess"><div class="hd"><b>${esc(s.workout)}${s.trial?' <span class="chip trial" style="font-size:10px;padding:2px 7px">TRIAL</span>':""}</b><span>${esc(ds)}</span></div>
      <div class="barlbl" style="margin-top:4px"><span>Week ${s.week} · ${s.done}/${s.total} complete${s.swaps?` · ${s.swaps} swapped`:""}</span></div>
+     ${s.blocks&&Object.keys(s.blocks).length?`<div class="blkstats">${Object.entries(s.blocks).map(([n,v])=>`<span class="blkstat ${v?"on":""}">${v?"✓":"–"} ${esc(n)}</span>`).join("")}</div>`:""}
      ${s.cls?`<div class="stats"><div class="stat"><small>Type</small><b>${esc(s.cls.type||"–")}</b></div><div class="stat"><small>Duration</small><b>${esc(s.cls.dur||"–")}</b><span style="color:var(--muted)"> min</span>${s.cls.effort?`<i>${esc(s.cls.effort)}</i>`:""}</div></div>${s.cls.notes?`<div class="blocknote" style="margin:10px 2px 0">${esc(s.cls.notes)}</div>`:""}<div class="blocknote" style="margin:6px 2px 0">In place of ${esc(s.cls.replaced)}</div>`:""}
-     ${s.lifts.length?`<div class="stats">${s.lifts.map(l=>`<div class="stat"><small>${esc(l.n)}</small><b>${esc(l.wt||"–")}</b><span style="color:var(--muted)"> × ${esc(l.reps||"–")}</span>${l.feel?`<i>${esc(l.feel)}</i>`:""}</div>`).join("")}</div>`:""}</div>`;});
+     ${s.lifts.length?`<div class="stats">${s.lifts.map(l=>`<div class="stat"><small>${esc(l.n)}</small><b>${esc(l.wt||"–")}</b><span style="color:var(--muted)"> × ${esc(l.reps||"–")}</span>${l.feel?`<i>${esc(l.feel)}</i>`:""}</div>`).join("")}</div>`:""}
+     ${s.swapDetail&&s.swapDetail.length?`<div class="blocknote" style="margin:10px 2px 0">Swapped: ${s.swapDetail.map(x=>`${esc(x.from)} → ${esc(x.to)}`).join(", ")}</div>`:""}
+     ${s.notes?`<div class="blocknote" style="margin:6px 2px 0">${esc(s.notes)}</div>`:""}</div>`;});
   document.getElementById("view").innerHTML=h;
 }
 
@@ -423,18 +451,21 @@ document.addEventListener("click",ev=>{
     case"tclose":closeTimer();render();break;
     case"ifilt":ui.filt=v;rIndex();break;
     case"iopen":ui.iopen[a.dataset.id]=!ui.iopen[a.dataset.id];a.closest(".ex").classList.toggle("open",ui.iopen[a.dataset.id]);break;
-    case"save":{const lifts=[];let total=0,done=0,swaps=0;
-      curDay().blocks.forEach((b,bi2)=>b.items.forEach((it,i2)=>{const kk=`${bi2}-${i2}`,s=st.s[kk]||{},id=st.swap[kk]||it.id;total++;if(s.done)done++;if(st.swap[kk])swaps++;if(it.log)lifts.push({n:id,wt:s.wt,reps:s.reps,feel:s.feel})}));
-      const rec={date:TODAY,workout:curDay().title,week:st.week,trial:TRIAL,lifts,done,total,swaps};
+    case"save":{const lifts=[];const swapDetail=[];let total=0,done=0,swaps=0;
+      curDay().blocks.forEach((b,bi2)=>b.items.forEach((it,i2)=>{const kk=`${bi2}-${i2}`,s=st.s[kk]||{},id=st.swap[kk]||it.id;total++;if(s.done)done++;if(st.swap[kk]){swaps++;swapDetail.push({from:it.id,to:id});}if(it.log)lifts.push({n:id,wt:s.wt,reps:s.reps,feel:s.feel})}));
+      const blocks=blockStatus(curDay());
+      const rec={date:TODAY,workout:curDay().title,week:st.week,trial:TRIAL,lifts,done,total,swaps,swapDetail,blocks};
+      if(st.notes&&st.notes.trim())rec.notes=st.notes.trim();
       if(st.w==="CLASS")rec.cls=Object.assign({replaced:prog[AUTO].title},st.cls);
       hist.push(rec);store.set("wk_hist",hist);Timer.reset();closeTimer();Sync.queue(rec);
-      st.s={};st.swap={};st.cls={};ui.open={};saveDraft();render();scrollTo(0,0);toast("Session saved");break;}
+      st.s={};st.swap={};st.cls={};st.notes="";ui.open={};saveDraft();render();scrollTo(0,0);toast("Session saved");break;}
   }
 });
 document.addEventListener("input",ev=>{const a=ev.target,t=a.dataset.in;if(!t)return;
   if(t==="wt"||t==="reps"){S(a.dataset.k)[t]=a.value;saveDraft();}
   else if(t==="rx"){prog[ui.pday].blocks[+a.dataset.bi].items[+a.dataset.i].rx=a.value;saveProg();}
   else if(t==="cdur"||t==="cnotes"){st.cls[t==="cdur"?"dur":"notes"]=a.value;saveDraft();}
+  else if(t==="notes"){st.notes=a.value;saveDraft();}
   else if(t==="iq"){ui.q=a.value;document.getElementById("ilist").innerHTML=indexListHTML(filtered(ui.q,ui.filt),"view");}
   else if(t==="pq"){ui.picker.q=a.value;renderPickerList();}
 });

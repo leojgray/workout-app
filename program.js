@@ -2,11 +2,16 @@
 // Each item: { id: <exact name from the master index>, rx: "sets × reps", log: true/false }
 // Bump `version` when publishing a new cycle — it replaces any in-app edits from the old one.
 const B = (title, items, note, cat) => ({ title, note: note || "", cat: cat || "Lifts", items });
-const I = (id, rx, log) => ({ id, rx, log: !!log });
+// trackAs: optional override for which "block" this item's completion counts toward
+// (used only for the background per-block yes/no tracker — never changes what's shown on screen).
+// Leave it off and the item counts toward its own block's title.
+const I = (id, rx, log, trackAs) => ({ id, rx, log: !!log, trackAs });
 
 const WARM = () => B("Warm-up", [I("Bike/Rower Warm-up","10 min"), I("Dynamic Stretching","5 min")], "", "Warm-up");
-const FOOT = () => ["Arch Lifting","Toe Yoga","Towel Scrunches","Toe Spreading","Plantar Fascia Stretch","Great Toe Stretch","Frozen Bottle Roll"].map(n => I(n,"~1 min"));
-const COOL = () => B("Cool-down & Foot", [I("Cool-down Cardio","8 min"), ...FOOT(), I("Static Stretching","5 min")], "PT routine · ~7 min · seated", "Foot (PT)");
+const FOOT = () => ["Arch Lifting","Toe Yoga","Towel Scrunches","Toe Spreading","Plantar Fascia Stretch","Great Toe Stretch","Frozen Bottle Roll"].map(n => I(n,"~1 min",false,"Foot"));
+// Foot items are tagged "Foot" above so the tracker counts them separately from Cool-down,
+// even though they stay in one merged "Cool-down & Foot" list on screen.
+const COOL = () => B("Cool-down & Foot", [I("Cool-down Cardio","8 min",false,"Cool-down"), ...FOOT(), I("Static Stretching","5 min",false,"Cool-down")], "PT routine · ~7 min · seated", "Foot (PT)");
 const CORE_NOTE = "One circuit in one spot · 2 rounds · minimal rest";
 const LIFT_NOTE = "Rest 2–3 min on LOG lifts · 60–90 s otherwise";
 
