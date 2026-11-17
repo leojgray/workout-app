@@ -79,11 +79,35 @@ const Sync=(function(){
     setInterval(flush,5*60*1000);
   }
 
+  // Pulls every session already synced to the Obsidian repo, so a session
+  // saved locally but lost from this device (storage cleared, new phone,
+  // reinstall) can be recovered from the one place it's durably kept.
+  async function restore(){
+    if(!hasToken()) throw new Error("No sync token set");
+    const headers={
+      "Authorization":"Bearer "+getToken(),
+      "Accept":"application/vnd.github+json"
+    };
+    const listRes=await fetch(API.replace(/\/$/,""),{headers});
+    if(!listRes.ok) throw new Error("HTTP "+listRes.status+" listing sessions");
+    const files=await listRes.json();
+    const recs=[];
+    for(const f of files){
+      const r=await fetch(f.url,{headers});
+      if(!r.ok) continue;
+      const j=await r.json();
+      try{ recs.push(JSON.parse(decodeURIComponent(escape(atob(j.content.replace(/\n/g,"")))))); }
+      catch(e){ /* skip anything unreadable rather than fail the whole restore */ }
+    }
+    return recs;
+  }
+
   return {
     queue,
     flush,
     hasToken,
     setToken,
+    restore,
     pendingCount(){ return getQueue().length; },
     status(){ return getStatus(); }
   };

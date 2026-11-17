@@ -369,7 +369,7 @@ function syncBadge(){
   return "";
 }
 function rHistory(){
-  let h=`<h1>History</h1><div style="margin:-8px 0 14px">${syncBadge()}</div>`;if(!hist.length)h+=`<div class="empty">No sessions yet.<br>Finish one on the Today tab.</div>`;
+  let h=`<h1>History</h1><div style="margin:-8px 0 14px">${syncBadge()}${Sync.hasToken()?` · <small class="lnk" data-act="syncrestore" style="color:var(--muted)">check Obsidian for missing sessions</small>`:""}</div>`;if(!hist.length)h+=`<div class="empty">No sessions yet.<br>Finish one on the Today tab.</div>`;
   hist.slice().reverse().forEach(s=>{const d=new Date(s.date+"T12:00:00");const ds=isNaN(d)?s.date:d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
     h+=`<div class="sess"><div class="hd"><b>${esc(s.workout)}${s.trial?' <span class="chip trial" style="font-size:10px;padding:2px 7px">TRIAL</span>':""}</b><span>${esc(ds)}</span></div>
      <div class="barlbl" style="margin-top:4px"><span>Week ${s.week} · ${s.done}/${s.total} complete${s.swaps?` · ${s.swaps} swapped`:""}</span></div>
@@ -441,6 +441,13 @@ document.addEventListener("click",ev=>{
     case"ceff":st.cls.effort=v;saveDraft();render();break;
     case"ttest":Timer.test();break;
     case"syncnow":Sync.flush().then(render);break;
+    case"syncrestore":{toast("Checking Obsidian…");Sync.restore().then(recs=>{
+      const have=new Set(hist.map(h=>h.date+"|"+h.workout));let added=0;
+      recs.forEach(r=>{const key=r.date+"|"+r.workout;if(!have.has(key)){hist.push(r);have.add(key);added++;}});
+      hist.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+      store.set("wk_hist",hist);render();
+      toast(added?`Restored ${added} session${added>1?"s":""} from Obsidian`:"Already up to date");
+    }).catch(e=>toast("Couldn't check Obsidian: "+e.message));break;}
     case"syncsetup":{const t=prompt("Paste your GitHub token for Obsidian sync (from github.com/settings/personal-access-tokens, scoped only to the workout-data repo):",Sync.hasToken()?"":"");if(t!==null){Sync.setToken(t);toast(t.trim()?"Sync connected":"Sync token cleared");Sync.flush().then(render);}break;}
     case"tvoice":{Timer.setVoiceOn(!Timer.voiceOn);const el=document.getElementById("tov");if(el)el._key="";render();if(el&&el.style.display==="flex")rTimer(Timer.state());break;}
     case"tstart":{const b=curDay().blocks[bi],tc=tcfg(b);const stations=b.items.map((it,j)=>st.swap[`${bi}-${j}`]||it.id);
