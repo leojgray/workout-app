@@ -31,6 +31,8 @@ h1{font-family:var(--f-display);font-size:28px;font-weight:700;letter-spacing:-.
 .h2{display:flex;justify-content:space-between;align-items:center;margin:var(--space-6) 2px var(--space-3)}
 .h2 b{font-family:var(--f-display);font-size:21px;font-weight:700;letter-spacing:-.01em}.h2 span{font-size:14px;color:var(--muted)}
 .blocknote{font-size:13px;color:var(--muted);margin:-4px 2px var(--space-3)}
+.logdate{display:flex;align-items:center;gap:8px;margin:0 2px var(--space-4);font-size:13px;color:var(--muted)}
+.logdate input[type=date]{background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:6px 10px;font-size:14px;font-family:inherit}
 .hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-card);padding:var(--space-5)}
 .tag{display:inline-block;font-size:12px;letter-spacing:.06em;font-weight:600;color:var(--muted);background:var(--surface-2);padding:6px 10px;border-radius:var(--radius-sm)}
 .herorow{display:flex;gap:var(--space-4);align-items:center;margin-top:var(--space-4)}
@@ -193,6 +195,7 @@ const saveProg=()=>store.set("wk_prog",{version:PROGRAM.version,days:prog});
 
 const now=new Date();now.setHours(12,0,0,0);
 const ISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+function parseISO(s){const[y,m,dd]=s.split("-").map(Number);const d=new Date(y,m-1,dd);d.setHours(12,0,0,0);return d;}
 const TODAY=ISO(now), TRIAL=now<CYCLE_START;
 function autoPick(d){const s=PROGRAM.schedule[d.getDay()];if(typeof s==="string")return s;const w=Math.round((d-OFF_FRIDAY)/(7*864e5));return(((w%2)+2)%2===0)?s.off:s.on;}
 const dayN=d=>Math.floor((d-CYCLE_START)/864e5);
@@ -207,9 +210,10 @@ const CLASS_TYPES=["Cardio","HIIT","Strength","Mixed"];
 let hist=store.get("wk_hist",[]);
 // In-progress session survives a page reload during the same day
 const draft=store.get("wk_draft",null);
-let st=(draft&&draft.date===TODAY)?draft:{date:TODAY,w:AUTO,week:autoWeek(now),s:{},swap:{},cls:{},notes:""};
+let st=(draft&&draft.date===TODAY)?draft:{date:TODAY,w:AUTO,week:autoWeek(now),s:{},swap:{},cls:{},notes:"",logDate:TODAY};
 st.cls=st.cls||{};
 st.notes=st.notes||"";
+st.logDate=st.logDate||TODAY;
 const saveDraft=()=>store.set("wk_draft",st);
 let ui={tab:"today",open:{},iopen:{},q:"",filt:"Lifts",pday:AUTO,picker:null};
 
@@ -259,7 +263,9 @@ function rToday(){
   const w=curDay();let total=0,done=0;
   w.blocks.forEach((b,bi)=>b.items.forEach((_,i)=>{total++;if(st.s[`${bi}-${i}`]?.done)done++}));
   const pct=total?Math.round(done/total*100):0;
-  let h=`<h1>Today's Activity</h1><div class="hero"><span class="tag">${st.w===AUTO?"TODAY'S WORKOUT":"WORKOUT"}</span>
+  let h=`<h1>Today's Activity</h1>
+   <div class="logdate"><span>Logging for</span><input type="date" data-in="logdate" value="${st.logDate}" max="${TODAY}">${st.logDate!==TODAY?`<span class="lnk" data-act="logdatetoday" style="color:var(--accent)">Reset to today</span>`:""}</div>
+   <div class="hero"><span class="tag">${st.w===AUTO?"TODAY'S WORKOUT":"WORKOUT"}</span>
    <div class="herorow"><div class="ico">${IC[w.icon]||IC.lift}</div><div><h3>${esc(w.title)}</h3><p>Est. ${esc(w.est)} · ${TRIAL?"Trial run":PROGRAM.name+" · Week "+st.week}</p></div></div>
    <p class="about">${esc(w.about)}</p>${st.w!=="CLASS"?`<button class="classbtn" data-act="w" data-v="CLASS">${IC.cls.replace(/30/g,"18")} Took an O-Athletic class instead</button>`:""}<div class="bar"><i style="width:${pct}%"></i></div><div class="barlbl"><span>${done} of ${total} complete</span><span>${pct}%</span></div></div>
    <div class="dayrow">${Object.entries(prog).map(([k,v])=>`<button class="pill ${k===st.w?"on":""} ${k===AUTO?"auto":""}" data-act="w" data-v="${k}">${esc(v.label)}</button>`).join("")}<button class="pill ${st.w==="CLASS"?"on":""}" data-act="w" data-v="CLASS">O-Athletic Class</button></div>
@@ -441,6 +447,7 @@ document.addEventListener("click",ev=>{
     case"ceff":st.cls.effort=v;saveDraft();render();break;
     case"ttest":Timer.test();break;
     case"syncnow":Sync.flush().then(render);break;
+    case"logdatetoday":if(st.logDate!==TODAY){st.logDate=TODAY;st.w=AUTO;st.week=autoWeek(now);st.s={};st.swap={};}saveDraft();render();break;
     case"syncrestore":{toast("Checking Obsidian…");Sync.restore().then(recs=>{
       const have=new Set(hist.map(h=>h.date+"|"+h.workout));let added=0;
       recs.forEach(r=>{const key=r.date+"|"+r.workout;if(!have.has(key)){hist.push(r);have.add(key);added++;}});
@@ -461,11 +468,11 @@ document.addEventListener("click",ev=>{
     case"save":{const lifts=[];const swapDetail=[];let total=0,done=0,swaps=0;
       curDay().blocks.forEach((b,bi2)=>b.items.forEach((it,i2)=>{const kk=`${bi2}-${i2}`,s=st.s[kk]||{},id=st.swap[kk]||it.id;total++;if(s.done)done++;if(st.swap[kk]){swaps++;swapDetail.push({from:it.id,to:id});}if(it.log)lifts.push({n:id,wt:s.wt,reps:s.reps,feel:s.feel})}));
       const blocks=blockStatus(curDay());
-      const rec={date:TODAY,workout:curDay().title,week:st.week,trial:TRIAL,lifts,done,total,swaps,swapDetail,blocks};
+      const rec={date:st.logDate||TODAY,workout:curDay().title,week:st.week,trial:TRIAL,lifts,done,total,swaps,swapDetail,blocks};
       if(st.notes&&st.notes.trim())rec.notes=st.notes.trim();
       if(st.w==="CLASS")rec.cls=Object.assign({replaced:prog[AUTO].title},st.cls);
-      hist.push(rec);store.set("wk_hist",hist);Timer.reset();closeTimer();Sync.queue(rec);
-      st.s={};st.swap={};st.cls={};st.notes="";ui.open={};saveDraft();render();scrollTo(0,0);toast("Session saved");break;}
+      hist.push(rec);hist.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);store.set("wk_hist",hist);Timer.reset();closeTimer();Sync.queue(rec);
+      st.s={};st.swap={};st.cls={};st.notes="";st.logDate=TODAY;ui.open={};saveDraft();render();scrollTo(0,0);toast(rec.date===TODAY?"Session saved":`Session saved for ${rec.date}`);break;}
   }
 });
 document.addEventListener("input",ev=>{const a=ev.target,t=a.dataset.in;if(!t)return;
@@ -473,6 +480,9 @@ document.addEventListener("input",ev=>{const a=ev.target,t=a.dataset.in;if(!t)re
   else if(t==="rx"){prog[ui.pday].blocks[+a.dataset.bi].items[+a.dataset.i].rx=a.value;saveProg();}
   else if(t==="cdur"||t==="cnotes"){st.cls[t==="cdur"?"dur":"notes"]=a.value;saveDraft();}
   else if(t==="notes"){st.notes=a.value;saveDraft();}
+  else if(t==="logdate"){const v=a.value||TODAY;
+    if(v!==st.logDate){st.logDate=v;const d=parseISO(v);st.w=autoPick(d);st.week=autoWeek(d);st.s={};st.swap={};}
+    saveDraft();render();}
   else if(t==="iq"){ui.q=a.value;document.getElementById("ilist").innerHTML=indexListHTML(filtered(ui.q,ui.filt),"view");}
   else if(t==="pq"){ui.picker.q=a.value;renderPickerList();}
 });
