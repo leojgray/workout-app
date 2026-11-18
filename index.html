@@ -472,7 +472,10 @@ document.addEventListener("click",ev=>{
       if(st.notes&&st.notes.trim())rec.notes=st.notes.trim();
       if(st.w==="CLASS")rec.cls=Object.assign({replaced:prog[AUTO].title},st.cls);
       hist.push(rec);hist.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);store.set("wk_hist",hist);Timer.reset();closeTimer();Sync.queue(rec);
-      st.s={};st.swap={};st.cls={};st.notes="";st.logDate=TODAY;ui.open={};saveDraft();render();scrollTo(0,0);toast(rec.date===TODAY?"Session saved":`Session saved for ${rec.date}`);break;}
+      const wasBackdated=st.logDate&&st.logDate!==TODAY;
+      st.s={};st.swap={};st.cls={};st.notes="";st.logDate=TODAY;ui.open={};
+      if(wasBackdated){st.w=AUTO;st.week=autoWeek(now);}
+      saveDraft();render();scrollTo(0,0);toast(rec.date===TODAY?"Session saved":`Session saved for ${rec.date}`);break;}
   }
 });
 document.addEventListener("input",ev=>{const a=ev.target,t=a.dataset.in;if(!t)return;
